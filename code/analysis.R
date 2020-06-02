@@ -112,3 +112,85 @@ tweets.raw.df %>%
 
 #-------------------------------------------------------------------
 # Preprocessing
+
+tweets.df <- tweets.raw.df %>% 
+  # Remove column.
+  select(-  Created_At) %>% 
+  # Convert to lowercase. 
+  mutate(Text = Text %>% str_to_lower) %>% 
+  # Remove unwanted characters. 
+  mutate(Text= Text %>% str_remove_all(pattern = '\\n')) %>% 
+  mutate(Text = Text %>% str_remove_all(pattern = '&amp')) %>% 
+  mutate(Text = Text %>% str_remove_all(pattern = 'https://t.co/[a-z,A-Z,0-9]*')) %>% 
+  mutate(Text = Text %>% str_remove_all(pattern = 'http://t.co/[a-z,A-Z,0-9]*')) %>% 
+  mutate(Text = Text %>% str_remove_all(pattern = 'https')) %>% 
+  mutate(Text = Text %>% str_remove_all(pattern = 'http')) %>% 
+  # Remove hashtags.
+  mutate(Text = Text %>% str_remove_all(pattern = '#[a-z,A-Z]*')) %>% 
+  # Remove accounts.
+  mutate(Text = Text %>% str_remove_all(pattern = '@[a-z,A-Z]*')) %>% 
+  # Remove retweets.
+  mutate(Text = Text %>% str_remove_all(pattern = 'rt [a-z,A-Z]*: ')) %>% 
+  mutate(Text = Text %>% str_remove(pattern = '^(rt)')) %>% 
+  mutate(Text = Text %>% str_remove_all(pattern = '\\_')) 
+
+# Replace accents. 
+replacement.list <- list('á' = 'a', 'é' = 'e', 'í' = 'i', 'ó' = 'o', 'ú' = 'u')
+
+tweets.df %<>% 
+  mutate(Text = chartr(old = names(replacement.list) %>% str_c(collapse = ''), 
+                       new = replacement.list %>% str_c(collapse = ''),
+                       x = Text))
+
+# Corpus object
+
+corpus <-  Corpus(x = VectorSource(x = tweets.df$Text))
+
+tweets.text <- corpus %>% 
+  tm_map(removePunctuation) %>% 
+  tm_map(removeNumbers) %>% 
+  tm_map(removeWords, stopwords('spanish')) %>% 
+  tm_map(PlainTextDocument) # %>% 
+# We could also use stemming by uncommenting the folowing line. 
+# tm_map(stemDocument, 'spanish')
+
+# Recover data into original tibble.
+tweets.df %<>% mutate(Text = tweets.text[[1]]$content)
+
+GetHashtags <- function(tweet) {
+  
+  hashtag.vector <- str_extract_all(string = tweet, pattern = '#\\S+', simplify = TRUE) %>% 
+    as.character()
+  
+  hashtag.string <- NA
+  
+  if (length(hashtag.vector) > 0) {
+    
+    hashtag.string <- hashtag.vector %>% str_c(collapse = ', ')
+    
+  } 
+  
+  return(hashtag.string)
+}
+
+hashtags.df <- tibble(
+  Hashtags = tweets.raw.df$Text %>% map_chr(.f = ~ GetHashtags(tweet = .x))
+)
+
+hashtags.df %>% head()
+
+tweets.df %<>% bind_cols(hashtags.df) 
+
+# "m" will represent before. results.time. 
+tweets.m.df <- tweets.df %>% 
+  filter(Created_At_Round < results.time) %>% 
+  select(ID, Text)
+
+
+# "p" will represent after results.time. 
+tweets.p.df <- tweets.df %>% 
+  filter(Created_At_Round >= results.time) %>% 
+  select(ID, Text)
+
+#-------------------------------------------------------------------
+# Counts
