@@ -61,10 +61,12 @@ tweets.raw.df %<>%
     Created_At = Created_At %>% 
       # Remove zeros.
       str_remove_all(pattern = '\\+0000') %>%
-      # Parse date.
-      parse_date_time(orders = '%a %b %d %H%M%S %Y')
+      # Parse date. 
+      parse_date_time(orders = '%a %b %d %H%M%S %Y',locale = "English" )
   )
 
 tweets.raw.df %>% 
   filter(!str_detect(string = Text, pattern = '@')) %>% 
   head()
+
+
