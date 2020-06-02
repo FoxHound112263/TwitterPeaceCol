@@ -17,6 +17,7 @@ library(igraph)
 # Network Visualization (D3.js)
 library(networkD3)
 
+#-------------------------------------------------------------------
 # READING
 
 # Set notebook directory.
@@ -70,3 +71,44 @@ tweets.raw.df %>%
   head()
 
 
+#-------------------------------------------------------------------
+# Temporal Analysis
+
+# We substract seconds, that is why we need three factors. 
+tweets.raw.df %<>% 
+  mutate(Created_At = Created_At - 5*60*60)
+
+tweets.raw.df %>% pull(Created_At) %>% min()
+
+tweets.raw.df %>% pull(Created_At) %>% max()
+
+tweets.raw.df %<>% 
+  mutate(Created_At_Round = Created_At %>% round(units = 'mins') %>% as.POSIXct())
+
+
+# Plot of the time series count per minute
+
+plt <- tweets.raw.df %>% 
+  count(Created_At_Round) %>% 
+  ggplot(mapping = aes(x = Created_At_Round, y = n)) +
+  theme_light() +
+  geom_line() +
+  xlab(label = 'Date') +
+  ylab(label = NULL) +
+  ggtitle(label = 'Number of Tweets per Minute')
+
+plt %>% ggplotly()
+
+
+results.time <- as.POSIXct(x = '2016-10-02 19:28:00')
+
+tweets.raw.df %>% 
+  filter(Created_At_Round > results.time ) %>% 
+  select(Text) %>% 
+  filter(!str_detect(string = Text, pattern = '@')) %>% 
+  pull(Text) %>% 
+  head(20) 
+
+
+#-------------------------------------------------------------------
+# Preprocessing
