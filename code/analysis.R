@@ -525,3 +525,89 @@ forceNetwork(
   zoom = TRUE, 
   opacityNoHover = 1
 )
+
+# Skipgram analysis
+
+skip.window <- 2
+
+skip.gram.words <- tweets.df %>% 
+  unnest_tokens(
+    input = Text, 
+    output = skipgram, 
+    token = 'skip_ngrams', 
+    n = skip.window
+  ) %>% 
+  filter(! is.na(skipgram))
+
+tweets.df %>% 
+  slice(4) %>% 
+  pull(Text)
+
+skip.gram.words %>% 
+  select(skipgram) %>% 
+  slice(10:20)
+
+skip.gram.words$num_words <- skip.gram.words$skipgram %>% 
+  map_int(.f = ~ ngram::wordcount(.x))
+
+skip.gram.words %<>% filter(num_words == 2) %>% select(- num_words)
+
+skip.gram.words %<>% 
+  separate(col = skipgram, into = c('word1', 'word2'), sep = ' ') %>% 
+  filter(! word1 %in% stopwords.df$word) %>% 
+  filter(! word2 %in% stopwords.df$word) %>% 
+  filter(! is.na(word1)) %>% 
+  filter(! is.na(word2)) 
+
+skip.gram.count <- skip.gram.words  %>% 
+  count(word1, word2, sort = TRUE) %>% 
+  rename(weight = n)
+
+skip.gram.count %>% head()
+
+
+# Treshold
+threshold <- 80
+
+network <-  skip.gram.count %>%
+  filter(weight > threshold) %>%
+  graph_from_data_frame(directed = FALSE)
+
+# Select biggest connected component.  
+V(network)$cluster <- clusters(graph = network)$membership
+
+cc.network <- induced_subgraph(
+  graph = network,
+  vids = which(V(network)$cluster == which.max(clusters(graph = network)$csize))
+)
+
+# Store the degree.
+V(cc.network)$degree <- strength(graph = cc.network)
+# Compute the weight shares.
+E(cc.network)$width <- E(cc.network)$weight/max(E(cc.network)$weight)
+
+# Create networkD3 object.
+network.D3 <- igraph_to_networkD3(g = cc.network)
+# Define node size.
+network.D3$nodes %<>% mutate(Degree = (1E-2)*V(cc.network)$degree)
+# Degine color group (I will explore this feature later).
+network.D3$nodes %<>% mutate(Group = 1)
+# Define edges width. 
+network.D3$links$Width <- 10*E(cc.network)$width
+
+forceNetwork(
+  Links = network.D3$links, 
+  Nodes = network.D3$nodes, 
+  Source = 'source', 
+  Target = 'target',
+  NodeID = 'name',
+  Group = 'Group', 
+  opacity = 0.9,
+  Value = 'Width',
+  Nodesize = 'Degree', 
+  # We input a JavaScript function.
+  linkWidth = JS("function(d) { return Math.sqrt(d.value); }"), 
+  fontSize = 12,
+  zoom = TRUE, 
+  opacityNoHover = 1
+)
