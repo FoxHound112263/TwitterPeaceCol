@@ -276,3 +276,35 @@ plt.p <- word.count.p %>%
 plot_grid(... = plt.m, plt.p)
 
 
+#-------------------------------------------------------------------
+# Hashtags
+
+hashtags.unnested.df <- tweets.df %>% 
+  select(Created_At_Round, Hashtags) %>% 
+  unnest_tokens(input = Hashtags, output = hashtag)
+
+hashtags.unnested.count <- hashtags.unnested.df %>% 
+  count(hashtag) %>% 
+  drop_na()
+
+
+wordcloud(
+  words = str_c('#',hashtags.unnested.count$hashtag), 
+  freq = hashtags.unnested.count$n, 
+  min.freq = 40, 
+  colors=brewer.pal(8, 'Dark2')
+)
+
+
+plt <- hashtags.unnested.df %>% 
+  filter(hashtag %in% c('hoyvotosi', 'votono')) %>% 
+  count(Created_At_Round, hashtag) %>% 
+  ggplot(mapping = aes(x  = Created_At_Round, y = n, color = hashtag)) +
+  theme_light() + 
+  xlab(label = 'Date') +
+  ggtitle(label = 'Top Hastags Counts') +
+  geom_line() + 
+  scale_color_manual(values = c('hoyvotosi' = 'green3', 'votono' = 'red'))
+
+plt %>% ggplotly()
+
