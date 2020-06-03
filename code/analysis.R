@@ -526,6 +526,7 @@ forceNetwork(
   opacityNoHover = 1
 )
 
+#-------------------------------------------------------------------
 # Skipgram analysis
 
 skip.window <- 2
@@ -608,6 +609,102 @@ forceNetwork(
   # We input a JavaScript function.
   linkWidth = JS("function(d) { return Math.sqrt(d.value); }"), 
   fontSize = 12,
+  zoom = TRUE, 
+  opacityNoHover = 1
+)
+
+#-------------------------------------------------------------------
+# Community detection
+
+comm.det.obj <- cluster_louvain(
+  graph = cc.network, 
+  weights = E(cc.network)$weight
+)
+
+comm.det.obj
+
+V(cc.network)$membership <- membership(comm.det.obj)
+
+# We use the membership label to color the nodes.
+network.D3$nodes$Group <- V(cc.network)$membership
+
+forceNetwork(
+  Links = network.D3$links, 
+  Nodes = network.D3$nodes, 
+  Source = 'source', 
+  Target = 'target',
+  NodeID = 'name',
+  Group = 'Group', 
+  opacity = 0.9,
+  Value = 'Width',
+  Nodesize = 'Degree', 
+  # We input a JavaScript function.
+  linkWidth = JS("function(d) { return Math.sqrt(d.value); }"), 
+  fontSize = 12,
+  zoom = TRUE, 
+  opacityNoHover = 1
+)
+
+#-------------------------------------------------------------------
+# Correlation analysis
+
+cor.words <- words.df %>% 
+  group_by(word) %>% 
+  filter(n() > 10) %>% 
+  pairwise_cor(item = word, feature = ID) 
+
+topic.words <- c('uribe', 'santos', 'farc')
+
+
+# Set correlation threshold. 
+threshold = 0.1
+
+network <- cor.words %>%
+  rename(weight = correlation) %>% 
+  # filter for relevant nodes.
+  filter((item1 %in% topic.words | item2 %in% topic.words)) %>% 
+  filter(weight > threshold) %>%
+  graph_from_data_frame()
+
+V(network)$degree <- strength(graph = network)
+
+E(network)$width <- E(network)$weight/max(E(network)$weight)
+
+network.D3 <- igraph_to_networkD3(g = network)
+
+network.D3$nodes %<>% mutate(Degree = 5*V(network)$degree)
+
+# Define color groups. 
+network.D3$nodes$Group <- network.D3$nodes$name %>% 
+  as.character() %>% 
+  map_dbl(.f = function(name) {
+    index <- which(name == topic.words) 
+    ifelse(
+      test = length(index) > 0,
+      yes = index, 
+      no = 0
+    )
+  }
+  )
+
+network.D3$links %<>% mutate(Width = 10*E(network)$width)
+
+forceNetwork(
+  Links = network.D3$links, 
+  Nodes = network.D3$nodes, 
+  Source = 'source', 
+  Target = 'target',
+  NodeID = 'name',
+  Group = 'Group', 
+  # We color the nodes using JavaScript code.
+  colourScale = JS('d3.scaleOrdinal().domain([0,1,2]).range(["gray", "blue", "red", "black"])'), 
+  opacity = 0.8,
+  Value = 'Width',
+  Nodesize = 'Degree', 
+  # We define edge properties using JavaScript code.
+  linkWidth = JS("function(d) { return Math.sqrt(d.value); }"), 
+  linkDistance = JS("function(d) { return 550/(d.value + 1); }"), 
+  fontSize = 18,
   zoom = TRUE, 
   opacityNoHover = 1
 )
