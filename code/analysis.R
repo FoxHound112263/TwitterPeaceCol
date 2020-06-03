@@ -12,7 +12,6 @@ library(lubridate)
 library(tidytext)
 library(tm)
 library(wordcloud)
-library(wordcloud2)
 # Network Analysis
 library(igraph)
 # Network Visualization (D3.js)
@@ -218,12 +217,6 @@ word.count <-  word.count %>% mutate(word = reorder(word,n))
 
 # Lollipop chart
 
-ggplot(word.count[1:10,], aes(n, word, label = n)) +
-  geom_segment(aes(x = 0, y = word, xend = n, yend = word), color = "grey50") +
-  geom_point(size=10) +
-  geom_text(nudge_x = 1.5, color='white', size=3)
-
-
 ggplot(word.count[1:10,], aes(n,word,label=n,color=word)) +
   geom_segment(aes(x = 0, y = word, xend = n, yend = word), color = "grey50") +
   geom_point(size=3) +
@@ -234,6 +227,52 @@ ggplot(word.count[1:10,], aes(n,word,label=n,color=word)) +
   theme(panel.grid = element_blank(),legend.position = "none")
 
 # Wordcloud
-letterCloud( demoFreq, word = "R", color='random-light' , backgroundColor="black")
-wordcloud2(data=word.count, size=1.6)
+
+library(devtools)
+devtools::install_github("lchiffon/wordcloud2")
+library(wordcloud2)
+
+wordcloud2(data=word.count, size=1,shape = "oval",
+           rotateRatio = 0.5, 
+           ellipticity = 0.9, color = "brown")
+
+
+# Split data
+
+# Before results. 
+words.m.df <- tweets.m.df %>% 
+  unnest_tokens(input = Text, output = word) %>% 
+  anti_join(y = stopwords.df, by = 'word')
+
+word.count.m <- words.m.df %>% count(word, sort = TRUE)
+
+plt.m <- word.count.m %>% 
+  filter(n > 500) %>%
+  mutate(word = reorder(word, n)) %>%
+  ggplot(aes(x = word, y = n)) +
+  theme_light() + 
+  geom_col(fill = 'blue', alpha = 0.8) +
+  xlab(NULL) +
+  coord_flip() +
+  ggtitle(label = 'Before Results')
+
+# After results. 
+words.p.df <- tweets.p.df %>% 
+  unnest_tokens(input = Text, output = word) %>% 
+  anti_join(y = stopwords.df, by = 'word')
+
+word.count.p <- words.p.df %>% count(word, sort = TRUE)
+
+plt.p <- word.count.p %>% 
+  filter(n > 100) %>%
+  mutate(word = reorder(word, n)) %>%
+  ggplot(aes(x = word, y = n)) +
+  theme_light() + 
+  geom_col(fill = 'red', alpha = 0.8) +
+  xlab(NULL) +
+  coord_flip() +
+  ggtitle(label = 'After Results')
+
+plot_grid(... = plt.m, plt.p)
+
 
