@@ -12,6 +12,7 @@ library(lubridate)
 library(tidytext)
 library(tm)
 library(wordcloud)
+library(wordcloud2)
 # Network Analysis
 library(igraph)
 # Network Visualization (D3.js)
@@ -194,3 +195,45 @@ tweets.p.df <- tweets.df %>%
 
 #-------------------------------------------------------------------
 # Counts
+
+# Remove the shortcut 'q' for 'que'.
+extra.stop.words <- c('q')
+
+stopwords.df <- tibble(
+  word = c(stopwords(kind = 'es'), 
+           # We have some tweets in english.
+           stopwords(kind = 'en'),  
+           extra.stop.words)
+)
+
+words.df <- tweets.df %>% 
+  unnest_tokens(input = Text, output = word) %>% 
+  anti_join(y = stopwords.df, by = 'word')
+
+word.count <- words.df %>% count(word, sort = TRUE)
+
+word.count %>% head(10)
+
+word.count <-  word.count %>% mutate(word = reorder(word,n))
+
+# Lollipop chart
+
+ggplot(word.count[1:10,], aes(n, word, label = n)) +
+  geom_segment(aes(x = 0, y = word, xend = n, yend = word), color = "grey50") +
+  geom_point(size=10) +
+  geom_text(nudge_x = 1.5, color='white', size=3)
+
+
+ggplot(word.count[1:10,], aes(n,word,label=n,color=word)) +
+  geom_segment(aes(x = 0, y = word, xend = n, yend = word), color = "grey50") +
+  geom_point(size=3) +
+  labs(title="Lollipop Chart",subtitle="Most frequent words in the tweets") +
+  #coord_flip() +
+  theme_minimal() +
+  geom_text(position = position_nudge(x = 500)) +
+  theme(panel.grid = element_blank(),legend.position = "none")
+
+# Wordcloud
+letterCloud( demoFreq, word = "R", color='random-light' , backgroundColor="black")
+wordcloud2(data=word.count, size=1.6)
+
